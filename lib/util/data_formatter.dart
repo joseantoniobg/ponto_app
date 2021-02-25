@@ -1,5 +1,7 @@
 import 'package:ponto_app/util/consts.dart';
 
+import 'consts.dart';
+
 class DataFormatter {
   String formatTimetoString(int data) {
     return data.toString().padLeft(2, '0');
@@ -23,8 +25,10 @@ class DataFormatter {
   int getMillisecondsFromTimer(String timer) {
     int hours = getHourInTimer(timer);
     int minutes = getMinuteInTimer(timer);
+    int seconds = getSecondInTimer(timer);
     return hours * Consts.hourInMilliSeconds +
-        minutes * Consts.minuteInMilliSeconds;
+        minutes * Consts.minuteInMilliSeconds +
+        seconds * Consts.secondsInMilliseconds;
   }
 
   String addMinuteToTimer(String timer) {

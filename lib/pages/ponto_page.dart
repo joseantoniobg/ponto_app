@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:assets_audio_player/assets_audio_player.dart';
+import 'package:cool_alert/cool_alert.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:ponto_app/features/Time.dart';
 import 'package:ponto_app/util/consts.dart';
-import 'package:ponto_app/widgets/control_round_button.dart';
+import 'package:ponto_app/widgets/header_text.dart';
+import 'package:ponto_app/widgets/timerCard.dart';
+import 'package:ponto_app/widgets/timer_control_array.dart';
+import 'package:vibration/vibration.dart';
 
 class PontoPage extends StatefulWidget {
   PontoPage({Key key}) : super(key: key);
@@ -16,8 +19,8 @@ class PontoPage extends StatefulWidget {
 
 class _PontoPageState extends State<PontoPage> {
   Time timer =
-      new Time(new TimerData(hourMinuteSecond: "00:01:00", milliSecond: "000"));
-  final player = AudioPlayer();
+      new Time(new TimerData(hourMinuteSecond: "00:00:05", milliSecond: "000"));
+  AssetsAudioPlayer player = AssetsAudioPlayer();
   Timer clickWatch;
   bool isPlaying = false;
 
@@ -36,6 +39,9 @@ class _PontoPageState extends State<PontoPage> {
 
   _removeMinuteFromTime(BuildContext ctx) {
     setState(() {
+      if (timer.isTimeUp()) {
+        timer.resetTimer();
+      }
       if (timer.isMinimalPossibleTime()) {
         final snackBar =
             SnackBar(content: Text('Esse é o menor tempo possível!'));
@@ -53,17 +59,29 @@ class _PontoPageState extends State<PontoPage> {
     });
   }
 
-  void startTimer() {
-    clickWatch = new Timer.periodic(Consts.decSecond, (clickWatch) async {
+  void startTimer(BuildContext ctx) {
+    if (timer.isTimeUp()) {
+      timer.resetTimer();
+    }
+
+    clickWatch = new Timer.periodic(Consts.centSecond, (clickWatch) async {
       timer.setCurrentRemainingTime();
 
       setState(() {
-        timer.runTimeInDecSeconds();
+        timer.runTimeInCentSeconds();
       });
 
       if (timer.isTimeUp()) {
-        playAlarm();
         clickWatch.cancel();
+        showTimeUpDialog(ctx);
+        if (await Vibration.hasCustomVibrationsSupport()) {
+          Vibration.vibrate(
+            pattern: [1000, 500],
+            intensities: [1, 255],
+            repeat: 1,
+          );
+        }
+        playAlarm();
       }
     });
   }
@@ -72,9 +90,21 @@ class _PontoPageState extends State<PontoPage> {
     setState(() {
       isPlaying = true;
     });
-    await player.setAsset('assets/alarm.mp3');
-    await player.setLoopMode(LoopMode.one);
+    await player.open(Audio("assets/alarm.mp3"), loopMode: LoopMode.single);
     await player.play();
+  }
+
+  void showTimeUpDialog(BuildContext ctx) {
+    CoolAlert.show(
+      context: ctx,
+      type: CoolAlertType.warning,
+      title: "Atenção!",
+      text: "Está na hora de bater o ponto!",
+      onConfirmBtnTap: () {
+        pauseAlarm();
+        Navigator.of(ctx).pop();
+      },
+    );
   }
 
   void pauseAlarm() async {
@@ -82,6 +112,7 @@ class _PontoPageState extends State<PontoPage> {
       isPlaying = false;
     });
     await player.stop();
+    await Vibration.cancel();
   }
 
   void cancelTimer() {
@@ -106,59 +137,12 @@ class _PontoPageState extends State<PontoPage> {
       body: Builder(
         builder: (cont) => Column(
           children: [
-            Container(
-              height: MediaQuery.of(context).size.height / 5,
-              child: Center(
-                child: Text(
-                  'O seu aviso diário de Ponto',
-                  style: TextStyle(
-                    fontSize: 50,
-                    height: .96,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
+            HeaderText(headText: 'O seu aviso diário de Ponto'),
             SizedBox(height: 10),
-            Container(
-              height: MediaQuery.of(context).size.height / 12,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ControlRoundButton(
-                    onPressed: () {
-                      _addMinuteToTime(cont);
-                    },
-                    icon: Icons.arrow_drop_up,
-                    size: 30,
-                    buttonColor: Theme.of(context).primaryColor,
-                    iconColor: Colors.white,
-                  ),
-                  SizedBox(
-                    width: 10,
-                  ),
-                  ControlRoundButton(
-                    onPressed: () {
-                      _removeMinuteFromTime(cont);
-                    },
-                    icon: Icons.arrow_drop_down,
-                    size: 30,
-                    buttonColor: Theme.of(context).primaryColor,
-                    iconColor: Colors.white,
-                  ),
-                  SizedBox(
-                    width: 10,
-                  ),
-                  ControlRoundButton(
-                    onPressed: _resetTimer,
-                    icon: Icons.settings_backup_restore,
-                    size: 30,
-                    buttonColor: Theme.of(context).primaryColor,
-                    iconColor: Colors.white,
-                  ),
-                ],
-              ), //Placeholder(),
+            TimerControlArray(
+              addMinute: () => _addMinuteToTime(cont),
+              resetTimer: _resetTimer,
+              substractMinute: () => _removeMinuteFromTime(cont),
             ),
             Container(
               height: MediaQuery.of(context).size.height / 7.5,
@@ -190,68 +174,18 @@ class _PontoPageState extends State<PontoPage> {
                 ],
               ),
             ),
-            Card(
-              elevation: 5,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25.0),
-              ),
-              child: Container(
-                width: MediaQuery.of(context).size.width * .9,
-                height: MediaQuery.of(context).size.height / 3,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      margin: EdgeInsets.only(
-                        bottom: 10,
-                        top: 15,
-                      ),
-                      child: CircularPercentIndicator(
-                        radius: 190.0,
-                        lineWidth: 15.0,
-                        percent: timer.getTimePercentage() / 100,
-                        footer: new Text(
-                          timer.getTimePercentageStr() + " %",
-                          style: TextStyle(
-                            fontSize: 20,
-                            height: 1.8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        circularStrokeCap: CircularStrokeCap.round,
-                        progressColor: Colors.green[700],
-                      ),
-                    ),
-                    Container(
-                      margin: EdgeInsets.only(bottom: 30),
-                      child: ControlRoundButton(
-                        onPressed: isWatchActive() ? cancelTimer : startTimer,
-                        icon: isWatchActive() ? Icons.pause : Icons.play_arrow,
-                        size: 100,
-                        buttonColor: Colors.orange,
-                        iconColor: Colors.white,
-                      ),
-                    ),
-                    Container(
-                      margin: EdgeInsets.only(
-                        top: 60,
-                        left: 90,
-                      ),
-                      child: ControlRoundButton(
-                        onPressed: isPlaying ? pauseAlarm : null,
-                        icon: Icons.close,
-                        size: 30,
-                        buttonColor: Colors.red,
-                        iconColor: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            TimerCard(
+              isPlaying: isPlaying,
+              isWatchActive: isWatchActive,
+              cancelTimer: cancelTimer,
+              pauseAlarm: pauseAlarm,
+              startTimer: () => startTimer(cont),
+              timer: timer,
             ),
             Container(
               height: MediaQuery.of(context).size.height / 5,
-              child: Placeholder(),
+              child:
+                  SizedBox(), //TO-DO quant de vezes que o usuario usou o app, Shared Preferences
             ),
           ],
         ),

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:ponto_app/util/consts.dart';
 import 'package:ponto_app/util/data_formatter.dart';
 
@@ -26,6 +24,11 @@ class Time {
 
   void runTimeInMilliseconds() {
     _durationInMilliSeconds--;
+    setCurrentRemainingTime();
+  }
+
+  void runTimeInCentSeconds() {
+    _durationInMilliSeconds -= 10;
     setCurrentRemainingTime();
   }
 
