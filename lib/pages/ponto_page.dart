@@ -64,11 +64,11 @@ class _PontoPageState extends State<PontoPage> {
       timer.resetTimer();
     }
 
-    clickWatch = new Timer.periodic(Consts.centSecond, (clickWatch) async {
+    clickWatch = new Timer.periodic(Consts.decSecond, (clickWatch) async {
       timer.setCurrentRemainingTime();
 
       setState(() {
-        timer.runTimeInCentSeconds();
+        timer.runTimeInDecSeconds();
       });
 
       if (timer.isTimeUp()) {
